@@ -1,0 +1,5 @@
+interface:
+  display_name: "SQL Skill"
+  short_description: "Answer finance questions from SQLite."
+policy:
+  allow_implicit_invocation: true

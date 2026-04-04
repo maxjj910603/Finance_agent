@@ -1,0 +1,5 @@
+interface:
+  display_name: "RAG Skill"
+  short_description: "Answer finance policy questions from embedded documents."
+policy:
+  allow_implicit_invocation: true

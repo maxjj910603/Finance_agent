@@ -1,0 +1,5 @@
+interface:
+  display_name: "Hybrid Skill"
+  short_description: "Combine finance SQL facts and policy evidence."
+policy:
+  allow_implicit_invocation: true
