@@ -15,22 +15,26 @@ class LLMClient:
         self.host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
         self.model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
 
-    def classify_skill(self, question: str, skill_summaries: list[dict[str, str]]) -> Optional[RouterResult]:
-        skills_text = "\n".join(
-            [f"- {item['name']}: {item['description']}" for item in skill_summaries]
+    def classify_route(
+        self,
+        question: str,
+        route_summaries: list[dict[str, str]],
+    ) -> Optional[RouterResult]:
+        routes_text = "\n".join(
+            [f"- {item['route']}: {item['description']}" for item in route_summaries]
         )
         system = (
-            "You are a finance skill router. "
-            "Read the user question and choose exactly one skill from the provided skill list. "
+            "You are a finance route selector. "
+            "Choose exactly one route from chat, sql, rag, hybrid. "
             "Return strict JSON only with keys route, reason, confidence. "
-            "The route value must exactly match one provided skill name."
+            "The route value must be exactly one of: chat, sql, rag, hybrid."
         )
         user = (
             f"Question: {question}\n"
-            f"Available skills:\n{skills_text}\n"
-            'Output JSON format: {"route":"skill-name","reason":"...","confidence":0.0}'
+            f"Available routes:\n{routes_text}\n"
+            'Output JSON format: {"route":"chat|sql|rag|hybrid","reason":"short reason","confidence":0.0}'
         )
-        raw = self._call_ollama_text(system=system, user=user, max_output_tokens=180, temperature=0.0)
+        raw = self._call_ollama_text(system=system, user=user, max_output_tokens=120, temperature=0.0)
         return self._parse_route(raw)
 
     def chat_answer(self, question: str, skill_instructions: str) -> str:
@@ -44,8 +48,10 @@ class LLMClient:
         user = f"Skill instructions:\n{skill_instructions}\n\nUser message: {question}"
         answer = self._call_ollama_text(system=system, user=user, max_output_tokens=160, temperature=0.3)
         if answer:
-            return self._cleanup_answer(answer)
-        return "你好，我可以協助你處理財務資料與財務規範相關問題。"
+            cleaned = self._cleanup_answer(answer)
+            if cleaned:
+                return cleaned
+        return "你好，我可以協助查詢財務資料、報銷規範或整合兩者的問題。"
 
     def generate_sql(self, question: str, db_schema: str, skill_instructions: str) -> Optional[str]:
         system = (
@@ -83,24 +89,20 @@ class LLMClient:
             "Do not output field labels such as sql, rows, summary, evidence, answer, route, citations, or markdown fences. "
             "Return only the final user-facing answer."
         )
+        evidence_block = "\n- ".join(evidence_lines) if evidence_lines else "無"
         user = (
             f"Skill instructions:\n{skill_instructions}\n\n"
             f"Question: {question}\n"
             f"Route: {route}\n"
             f"Draft answer: {draft_answer}\n"
-            f"Evidence:\n- " + "\n- ".join(evidence_lines)
+            f"Evidence:\n- {evidence_block}"
         )
         refined = self._call_ollama_text(system=system, user=user, max_output_tokens=220, temperature=0.2)
         if refined:
-            return self._cleanup_answer(refined)
-
-        if route == "sql":
-            return f"根據財務資料：{draft_answer}"
-        if route == "rag":
-            return f"根據財務規範文件：{draft_answer}"
-        if route == "chat":
-            return draft_answer
-        return f"綜合財務資料與規範後：{draft_answer}"
+            cleaned = self._cleanup_answer(refined)
+            if self._is_user_facing_answer(route, cleaned):
+                return cleaned
+        return self._fallback_answer(route, draft_answer)
 
     def write_rag_answer(self, question: str, context_chunks: list[str], skill_instructions: str) -> str:
         system = (
@@ -119,7 +121,12 @@ class LLMClient:
         )
         answer = self._call_ollama_text(system=system, user=user, max_output_tokens=220, temperature=0.2)
         if answer:
-            return self._cleanup_answer(answer)
+            cleaned = self._cleanup_answer(answer)
+            if cleaned:
+                return cleaned
+        if context_chunks:
+            snippet = context_chunks[0].strip().replace("\n", " ")
+            return f"依據檢索到的文件內容，相關依據為：{snippet[:160]}。"
         return "insufficient evidence"
 
     def _call_ollama_text(
@@ -177,11 +184,15 @@ class LLMClient:
                 return None
 
         route = data.get("route")
-        if not isinstance(route, str):
+        if route not in {"chat", "sql", "rag", "hybrid"}:
             return None
 
         reason = str(data.get("reason", "llm route"))
-        confidence = float(data.get("confidence", 0.0))
+        confidence_raw = data.get("confidence", 0.0)
+        try:
+            confidence = float(confidence_raw)
+        except (TypeError, ValueError):
+            confidence = 0.0
         return RouterResult(route=route, reason=reason, confidence=confidence)
 
     @staticmethod
@@ -205,13 +216,35 @@ class LLMClient:
             r"(?im)^summary:\s*",
             r"(?im)^evidence:\s*",
             r"(?im)^citations:\s*",
-            r"(?im)^回答：\s*",
-            r"(?im)^答案：\s*",
-            r"(?im)^證據：\s*",
-            r"(?im)^引用：\s*",
+            r"(?im)^route:\s*",
         ]
         for pattern in label_patterns:
             cleaned = re.sub(pattern, "", cleaned)
 
         cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
         return cleaned
+
+    @staticmethod
+    def _is_user_facing_answer(route: str, text: str) -> bool:
+        if not text:
+            return False
+
+        lower = text.lower()
+        if "```" in text:
+            return False
+        if route in {"sql", "hybrid"} and "select " in lower:
+            return False
+        if lower.startswith("{") and lower.endswith("}"):
+            return False
+        return True
+
+    @staticmethod
+    def _fallback_answer(route: str, draft_answer: str) -> str:
+        cleaned = draft_answer.strip()
+        if route == "sql":
+            return f"根據資料庫查詢結果，{cleaned}"
+        if route == "rag":
+            return cleaned or "insufficient evidence"
+        if route == "chat":
+            return cleaned or "你好，我可以協助查詢財務相關問題。"
+        return f"綜合資料庫與文件證據，{cleaned}"

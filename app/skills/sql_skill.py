@@ -35,20 +35,27 @@ class SQLSkill:
             EvidenceItem(type="sql", source="sqlite:monthly_finance", detail=f"query={sql}"),
             EvidenceItem(type="sql", source="sqlite:monthly_finance", detail=f"rows={len(rows)}; {summary}"),
         ]
-        return summary, evidence
+        answer = self.llm_client.write_answer(
+            question=question,
+            route="sql",
+            draft_answer=summary,
+            evidence_lines=[f"{item.source}: {item.detail}" for item in evidence],
+            skill_instructions=skill_instructions,
+        )
+        return answer, evidence
 
     def _heuristic_sql(self, question: str) -> str:
         q = question.lower()
 
-        if "highest" in q or "max" in q:
+        if "highest" in q or "max" in q or "最高" in question:
             return "SELECT month, net_profit FROM monthly_finance ORDER BY net_profit DESC LIMIT 1"
-        if "lowest" in q or "min" in q:
+        if "lowest" in q or "min" in q or "最低" in question:
             return "SELECT month, net_profit FROM monthly_finance ORDER BY net_profit ASC LIMIT 1"
-        if "average" in q:
+        if "average" in q or "平均" in question:
             return "SELECT AVG(net_profit) AS avg_net_profit FROM monthly_finance"
-        if "revenue" in q:
+        if "revenue" in q or "營收" in question:
             return "SELECT month, revenue FROM monthly_finance ORDER BY month ASC LIMIT 12"
-        if "expense" in q:
+        if "expense" in q or "支出" in question or "費用" in question:
             return "SELECT month, expense FROM monthly_finance ORDER BY month ASC LIMIT 12"
         return "SELECT month, revenue, expense, net_profit FROM monthly_finance ORDER BY month ASC LIMIT 12"
 
@@ -113,17 +120,35 @@ class SQLSkill:
     @staticmethod
     def _summarize(rows: list) -> str:
         if not rows:
-            return "No rows returned."
+            return "查無符合條件的資料。"
 
         first = rows[0]
         keys = list(first.keys())
+        label_map = {
+            "month": "月份",
+            "revenue": "營收",
+            "expense": "支出",
+            "net_profit": "淨利",
+            "highest_net_profit": "最高淨利",
+            "lowest_net_profit": "最低淨利",
+            "avg_net_profit": "平均淨利",
+        }
+
+        def format_key(key: str) -> str:
+            return label_map.get(key, key)
+
         if len(rows) == 1 and len(keys) == 1:
             key = keys[0]
-            return f"{key} is {first[key]}."
+            return f"{format_key(key)}為 {first[key]}。"
         if len(rows) == 1 and len(keys) == 2:
-            return ", ".join([f"{key}={first[key]}" for key in keys])
+            if "month" in first:
+                metric_keys = [key for key in keys if key != "month"]
+                if len(metric_keys) == 1:
+                    metric_key = metric_keys[0]
+                    return f"{first['month']} 的{format_key(metric_key)}為 {first[metric_key]}。"
+            return "，".join([f"{format_key(key)}為 {first[key]}" for key in keys]) + "。"
 
         preview = []
         for row in rows[:3]:
-            preview.append(", ".join([f"{key}={row[key]}" for key in row.keys()]))
-        return "Top rows: " + " | ".join(preview)
+            preview.append("，".join([f"{format_key(key)}={row[key]}" for key in row.keys()]))
+        return "前幾筆結果為：" + "；".join(preview) + "。"

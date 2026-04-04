@@ -35,24 +35,21 @@ class Orchestrator:
         self._ensure_vector_index()
 
     def ask(self, question: str) -> AssistantResponse:
-        route_result = self.llm_client.classify_skill(question, self.skill_registry.summaries())
-        skill_name = route_result.route if route_result is not None else "hybrid-skill"
-        if skill_name not in {skill.name for skill in self.skill_registry.all()}:
-            skill_name = "hybrid-skill"
+        route_result = self.llm_client.classify_route(question, self._route_summaries())
+        route = route_result.route if route_result is not None else "hybrid"
+        if route not in {"chat", "sql", "rag", "hybrid"}:
+            route = "hybrid"
 
-        route = skill_name.replace("-skill", "")
-
-        if skill_name == "chat-skill":
+        if route == "chat":
             answer = self.chat_skill.run(question)
             return AssistantResponse(answer=answer, route="chat", evidence=[])
 
-        if skill_name == "sql-skill":
+        if route == "sql":
             skill = self.skill_registry.get("sql-skill")
             answer, evidence = self.sql_skill.run(question, skill.instructions)
-            polished = self._write_answer(question, "sql", answer, evidence, skill.instructions)
-            return AssistantResponse(answer=polished, route="sql", evidence=evidence)
+            return AssistantResponse(answer=answer, route="sql", evidence=evidence)
 
-        if skill_name == "rag-skill":
+        if route == "rag":
             skill = self.skill_registry.get("rag-skill")
             answer, evidence = self.rag_skill.run(question, skill.instructions)
             return AssistantResponse(answer=answer, route="rag", evidence=evidence)
@@ -72,17 +69,6 @@ class Orchestrator:
         )
         return AssistantResponse(answer=answer, route=route, evidence=evidence)
 
-    def _write_answer(
-        self,
-        question: str,
-        route: str,
-        answer: str,
-        evidence: list,
-        skill_instructions: str,
-    ) -> str:
-        evidence_lines = [f"{item.source}: {item.detail}" for item in evidence[:4]]
-        return self.llm_client.write_answer(question, route, answer, evidence_lines, skill_instructions)
-
     def _ensure_vector_index(self) -> None:
         if self.vector_store.count() > 0:
             return
@@ -96,3 +82,12 @@ class Orchestrator:
             if doc_path.name.lower() == "requirements.txt":
                 continue
             ingestion.ingest_file(doc_path)
+
+    def _route_summaries(self) -> list[dict[str, str]]:
+        skill_lookup = {skill.name: skill.description for skill in self.skill_registry.all()}
+        return [
+            {"route": "chat", "description": skill_lookup.get("chat-skill", "General conversation.")},
+            {"route": "sql", "description": skill_lookup.get("sql-skill", "Structured finance data queries.")},
+            {"route": "rag", "description": skill_lookup.get("rag-skill", "Document-grounded finance policy retrieval.")},
+            {"route": "hybrid", "description": skill_lookup.get("hybrid-skill", "Combine SQL facts and document evidence.")},
+        ]
