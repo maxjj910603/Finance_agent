@@ -1,6 +1,6 @@
 ---
 name: sql-skill
-description: Generate, validate, and explain read-only SQLite queries for finance questions over the monthly_finance dataset.
+description: Use for structured finance data questions over the monthly_finance table, including revenue, expense, net profit, monthly comparisons, averages, totals, highest, lowest, rankings, and numeric lookups answerable from SQLite alone.
 ---
 
 # SQL Skill

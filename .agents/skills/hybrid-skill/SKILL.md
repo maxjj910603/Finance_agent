@@ -1,6 +1,6 @@
 ---
 name: hybrid-skill
-description: Combine structured finance facts from SQL with grounded policy evidence from document retrieval.
+description: Use when the question needs both structured finance metrics from SQLite and policy evidence from documents, such as asking for a month or amount together with reimbursement rules, approval requirements, payment sign-off, attachment requirements, or budget procedures.
 ---
 
 # Hybrid Skill

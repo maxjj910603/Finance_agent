@@ -1,6 +1,6 @@
 ---
 name: rag-skill
-description: Retrieve and summarize finance policy evidence from embedded document chunks stored in the local vector database.
+description: Use for document-grounded finance policy questions such as reimbursement rules, payment applications, approval thresholds, sign-off requirements, required attachments, what is allowed, what is forbidden, and budget or procurement procedures from local policy documents.
 ---
 
 # RAG Skill

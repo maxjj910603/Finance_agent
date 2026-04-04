@@ -1,6 +1,6 @@
 ---
 name: chat-skill
-description: Handle greetings and general conversation in a concise finance-assistant tone without using SQL or document retrieval.
+description: Use only for greetings, casual conversation, or general non-finance small talk. Do not use for finance data, reimbursement rules, payment applications, approval thresholds, sign-off, required attachments, or policy questions.
 ---
 
 # Chat Skill
