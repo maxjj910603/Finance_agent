@@ -15,12 +15,19 @@ class HybridSkill:
         rag_answer: str,
         sql_evidence: list[EvidenceItem],
         rag_evidence: list[EvidenceItem],
+        skill_instructions: str,
     ) -> tuple[str, list[EvidenceItem]]:
         draft_answer = (
-            f"SQL facts: {sql_answer}\n"
-            f"Policy context: {rag_answer}"
+            f"結構化資料重點：{sql_answer}\n"
+            f"文件規範重點：{rag_answer}"
         )
         evidence = sql_evidence + rag_evidence
         evidence_lines = [f"{item.source}: {item.detail}" for item in evidence[:6]]
-        final_answer = self.llm_client.write_answer(question, "hybrid", draft_answer, evidence_lines)
+        final_answer = self.llm_client.write_answer(
+            question,
+            "hybrid",
+            draft_answer,
+            evidence_lines,
+            skill_instructions,
+        )
         return final_answer, evidence

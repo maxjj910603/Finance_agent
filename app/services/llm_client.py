@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from typing import Optional
@@ -14,45 +15,48 @@ class LLMClient:
         self.host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
         self.model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
 
-    def classify_route(self, question: str) -> Optional[RouterResult]:
+    def classify_skill(self, question: str, skill_summaries: list[dict[str, str]]) -> Optional[RouterResult]:
+        skills_text = "\n".join(
+            [f"- {item['name']}: {item['description']}" for item in skill_summaries]
+        )
         system = (
-            "You are a routing model for finance QA. "
-            "Choose exactly one route: chat, sql, rag, or hybrid. "
-            "Use chat for greetings or general conversation. "
-            "Use sql for structured questions answerable from finance table data. "
-            "Use rag for reimbursement, budget, policy, or regulation questions grounded in documents. "
-            "Use hybrid only when both finance data and finance policy context are required. "
-            "Return strict JSON only with keys route, reason, confidence."
+            "You are a finance skill router. "
+            "Read the user question and choose exactly one skill from the provided skill list. "
+            "Return strict JSON only with keys route, reason, confidence. "
+            "The route value must exactly match one provided skill name."
         )
         user = (
             f"Question: {question}\n"
-            "Output JSON format:\n"
-            '{"route":"chat|sql|rag|hybrid","reason":"...","confidence":0.0}'
+            f"Available skills:\n{skills_text}\n"
+            'Output JSON format: {"route":"skill-name","reason":"...","confidence":0.0}'
         )
-        raw = self._call_ollama_text(system=system, user=user, max_output_tokens=120, temperature=0.0)
+        raw = self._call_ollama_text(system=system, user=user, max_output_tokens=180, temperature=0.0)
         return self._parse_route(raw)
 
-    def chat_answer(self, question: str) -> str:
+    def chat_answer(self, question: str, skill_instructions: str) -> str:
         system = (
             "You are a concise finance assistant. "
             "Reply in Traditional Chinese only. "
-            "If the user is greeting you, greet them naturally. "
-            "Do not mention routing, SQL, or documents unless the user asks about them."
+            "Follow the provided skill instructions. "
+            "Return only the final reply. "
+            "Do not mention routing or internal tools unless asked."
         )
-        user = f"User message: {question}"
+        user = f"Skill instructions:\n{skill_instructions}\n\nUser message: {question}"
         answer = self._call_ollama_text(system=system, user=user, max_output_tokens=160, temperature=0.3)
         if answer:
-            return answer
+            return self._cleanup_answer(answer)
         return "你好，我可以協助你處理財務資料與財務規範相關問題。"
 
-    def generate_sql(self, question: str, db_schema: str) -> Optional[str]:
+    def generate_sql(self, question: str, db_schema: str, skill_instructions: str) -> Optional[str]:
         system = (
             "You generate one read-only SQLite query for finance analytics. "
+            "Follow the provided skill instructions. "
             "Return SQL only, no markdown, no explanation. "
             "Use only the provided schema. "
             "Never use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, PRAGMA, or multi-statement SQL."
         )
         user = (
+            f"Skill instructions:\n{skill_instructions}\n\n"
             f"Schema: {db_schema}\n"
             f"Question: {question}\n"
             "Return exactly one SELECT SQL statement."
@@ -68,15 +72,19 @@ class LLMClient:
         route: str,
         draft_answer: str,
         evidence_lines: list[str],
+        skill_instructions: str,
     ) -> str:
         system = (
             "You are a finance QA assistant. "
-            "Rewrite draft answers into concise, clear, professional Traditional Chinese. "
-            "Stay grounded to provided evidence. "
+            "Write a concise, clear, professional Traditional Chinese answer. "
+            "Follow the provided skill instructions. "
+            "Stay grounded to the provided evidence. "
             "Do not invent facts. "
-            "Return plain text only."
+            "Do not output field labels such as sql, rows, summary, evidence, answer, route, citations, or markdown fences. "
+            "Return only the final user-facing answer."
         )
         user = (
+            f"Skill instructions:\n{skill_instructions}\n\n"
             f"Question: {question}\n"
             f"Route: {route}\n"
             f"Draft answer: {draft_answer}\n"
@@ -84,7 +92,7 @@ class LLMClient:
         )
         refined = self._call_ollama_text(system=system, user=user, max_output_tokens=220, temperature=0.2)
         if refined:
-            return refined
+            return self._cleanup_answer(refined)
 
         if route == "sql":
             return f"根據財務資料：{draft_answer}"
@@ -94,21 +102,24 @@ class LLMClient:
             return draft_answer
         return f"綜合財務資料與規範後：{draft_answer}"
 
-    def write_rag_answer(self, question: str, context_chunks: list[str]) -> str:
+    def write_rag_answer(self, question: str, context_chunks: list[str], skill_instructions: str) -> str:
         system = (
             "You are a finance policy QA assistant. "
             "Answer in concise, professional Traditional Chinese. "
+            "Follow the provided skill instructions. "
             "Use only the provided retrieved document context. "
             "If the context is insufficient, say insufficient evidence. "
-            "Return plain text only."
+            "Do not output labels such as answer, citations, or evidence. "
+            "Return only the final answer."
         )
         user = (
+            f"Skill instructions:\n{skill_instructions}\n\n"
             f"Question: {question}\n"
             "Retrieved context:\n- " + "\n- ".join(context_chunks)
         )
         answer = self._call_ollama_text(system=system, user=user, max_output_tokens=220, temperature=0.2)
         if answer:
-            return answer
+            return self._cleanup_answer(answer)
         return "insufficient evidence"
 
     def _call_ollama_text(
@@ -166,7 +177,7 @@ class LLMClient:
                 return None
 
         route = data.get("route")
-        if route not in {"chat", "sql", "rag", "hybrid"}:
+        if not isinstance(route, str):
             return None
 
         reason = str(data.get("reason", "llm route"))
@@ -180,4 +191,27 @@ class LLMClient:
             lines = cleaned.splitlines()
             if len(lines) >= 2 and lines[-1].strip() == "```":
                 return "\n".join(lines[1:-1]).strip()
+        return cleaned
+
+    @staticmethod
+    def _cleanup_answer(text: str) -> str:
+        cleaned = text.strip()
+        cleaned = cleaned.replace("```sql", "").replace("```", "").strip()
+
+        label_patterns = [
+            r"(?im)^answer:\s*",
+            r"(?im)^sql:\s*",
+            r"(?im)^rows:\s*",
+            r"(?im)^summary:\s*",
+            r"(?im)^evidence:\s*",
+            r"(?im)^citations:\s*",
+            r"(?im)^回答：\s*",
+            r"(?im)^答案：\s*",
+            r"(?im)^證據：\s*",
+            r"(?im)^引用：\s*",
+        ]
+        for pattern in label_patterns:
+            cleaned = re.sub(pattern, "", cleaned)
+
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
         return cleaned

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Chat Skill"
+  short_description: "Handle greetings and general conversation."
+policy:
+  allow_implicit_invocation: true

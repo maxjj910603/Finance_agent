@@ -12,8 +12,8 @@ class SQLSkill:
         self.db_service = db_service
         self.llm_client = llm_client
 
-    def run(self, question: str) -> tuple[str, list[EvidenceItem]]:
-        llm_sql = self.llm_client.generate_sql(question, self.db_service.schema_text())
+    def run(self, question: str, skill_instructions: str) -> tuple[str, list[EvidenceItem]]:
+        llm_sql = self.llm_client.generate_sql(question, self.db_service.schema_text(), skill_instructions)
 
         sql_source = "llm"
         if self._is_safe_select(llm_sql):
@@ -40,15 +40,15 @@ class SQLSkill:
     def _heuristic_sql(self, question: str) -> str:
         q = question.lower()
 
-        if "highest" in q or "max" in q or "最高" in question:
+        if "highest" in q or "max" in q:
             return "SELECT month, net_profit FROM monthly_finance ORDER BY net_profit DESC LIMIT 1"
-        if "lowest" in q or "min" in q or "最低" in question:
+        if "lowest" in q or "min" in q:
             return "SELECT month, net_profit FROM monthly_finance ORDER BY net_profit ASC LIMIT 1"
-        if "average" in q or "平均" in question:
+        if "average" in q:
             return "SELECT AVG(net_profit) AS avg_net_profit FROM monthly_finance"
-        if "revenue" in q or "營收" in question:
+        if "revenue" in q:
             return "SELECT month, revenue FROM monthly_finance ORDER BY month ASC LIMIT 12"
-        if "expense" in q or "費用" in question or "支出" in question:
+        if "expense" in q:
             return "SELECT month, expense FROM monthly_finance ORDER BY month ASC LIMIT 12"
         return "SELECT month, revenue, expense, net_profit FROM monthly_finance ORDER BY month ASC LIMIT 12"
 
@@ -88,7 +88,7 @@ class SQLSkill:
         if any(token in padded for token in forbidden):
             return False
 
-        if "from monthly_finance" not in s and "avg(" not in s:
+        if "from monthly_finance" not in s and "avg(" not in s and "max(" not in s and "min(" not in s:
             return False
 
         if re.search(r"select\s+.*'[^']+'\s+as\s+\w+", s, re.IGNORECASE | re.DOTALL):

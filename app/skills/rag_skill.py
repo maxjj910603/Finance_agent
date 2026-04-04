@@ -10,7 +10,7 @@ class RAGSkill:
         self.retriever = retriever
         self.llm_client = llm_client
 
-    def run(self, question: str) -> tuple[str, list[EvidenceItem]]:
+    def run(self, question: str, skill_instructions: str) -> tuple[str, list[EvidenceItem]]:
         hits = self.retriever.retrieve(question, top_k=3)
         if not hits:
             return "insufficient evidence", [
@@ -34,5 +34,5 @@ class RAGSkill:
                 )
             )
 
-        answer = self.llm_client.write_rag_answer(question, context_chunks)
+        answer = self.llm_client.write_rag_answer(question, context_chunks, skill_instructions)
         return answer, evidence
