@@ -11,12 +11,12 @@ Local runnable finance assistant MVP with four routes:
 - Routes each question to one of the four modes with a strict JSON route contract.
 - Answers from local SQLite data for structured finance questions.
 - Answers from local embedded policy chunks for document-grounded questions.
-- Combines SQL facts and RAG evidence for hybrid questions.
+- Decomposes hybrid questions into an SQL sub-question and a policy sub-question before combining the results.
 - Returns `answer`, `route`, and `evidence` on every request.
 
 ## Project Layout
 
-- `app/orchestrator.py`: route selection and execution dispatch
+- `app/orchestrator.py`: route selection, hybrid question decomposition, and execution dispatch
 - `app/skills/`: chat, SQL, RAG, and hybrid execution logic
 - `app/services/db.py`: local SQLite setup and read-only querying
 - `app/services/ingestion.py`: chunking and vector ingestion
@@ -59,5 +59,6 @@ python -m unittest discover -s tests -v
 ## Notes
 
 - If route JSON is invalid or unavailable, the orchestrator defaults to `hybrid`.
+- Hybrid questions are decomposed into `sql_question` and `policy_question` before the two skills run.
 - SQL execution is read-only and constrained to `SELECT`.
 - RAG retrieval is grounded in the local vector store only.

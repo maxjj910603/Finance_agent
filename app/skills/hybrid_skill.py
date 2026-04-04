@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from app.schemas import EvidenceItem
 from app.services.llm_client import LLMClient
 
@@ -17,14 +19,31 @@ class HybridSkill:
         rag_evidence: list[EvidenceItem],
         skill_instructions: str,
     ) -> tuple[str, list[EvidenceItem]]:
-        draft_answer = f"資料庫結果：{sql_answer}\n文件依據：{rag_answer}"
+        del question, skill_instructions
+
+        sql_part = self._clean_answer(sql_answer)
+        rag_part = self._clean_answer(rag_answer)
+
+        parts: list[str] = []
+        if sql_part:
+            parts.append(sql_part)
+        if rag_part and rag_part.lower() != "insufficient evidence":
+            parts.append(rag_part)
+
+        if not parts:
+            parts.append("insufficient evidence")
+
+        answer = "\n".join(parts)
         evidence = sql_evidence + rag_evidence
-        evidence_lines = [f"{item.source}: {item.detail}" for item in evidence[:6]]
-        final_answer = self.llm_client.write_answer(
-            question,
-            "hybrid",
-            draft_answer,
-            evidence_lines,
-            skill_instructions,
-        )
-        return final_answer, evidence
+        return answer, evidence
+
+    @staticmethod
+    def _clean_answer(text: str) -> str:
+        cleaned = text.strip()
+        cleaned = re.sub(r"(?im)^sql sub-answer:\s*", "", cleaned)
+        cleaned = re.sub(r"(?im)^policy sub-answer:\s*", "", cleaned)
+        cleaned = re.sub(r"(?im)^資料庫結果：\s*", "", cleaned)
+        cleaned = re.sub(r"(?im)^文件依據：\s*", "", cleaned)
+        cleaned = re.sub(r"(?im)^write one combined user-facing answer.*$", "", cleaned)
+        cleaned = re.sub(r"\n{2,}", "\n", cleaned).strip()
+        return cleaned

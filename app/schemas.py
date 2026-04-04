@@ -12,6 +12,12 @@ class RouterResult:
 
 
 @dataclass
+class HybridQuestionParts:
+    sql_question: str
+    policy_question: str
+
+
+@dataclass
 class EvidenceItem:
     type: str
     source: str

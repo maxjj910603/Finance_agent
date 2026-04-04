@@ -36,8 +36,9 @@ Follow this sequence:
 2. Convert the question into an embedding using the configured embedding model.
 3. Query the vector store for the top relevant chunks.
 4. Inspect the retrieved chunks and determine whether they are sufficient to support an answer.
-5. Draft a concise answer that stays grounded in the retrieved text.
-6. Produce evidence that cites the document source and the relevant chunk snippets.
+5. If a retrieved chunk directly states the answer, use that rule, amount, deadline, or approver list directly.
+6. Draft a concise answer that stays grounded in the retrieved text.
+7. Produce evidence that cites the document source and the relevant chunk snippets.
 
 ## Output Contract
 
@@ -55,6 +56,8 @@ Evidence should include:
 - Retrieval must be embedding-based.
 - Answers must stay grounded in retrieved chunks.
 - If evidence is weak, say `insufficient evidence`.
+- Do not say `insufficient evidence` when a retrieved chunk already contains a directly applicable rule.
+- For approval, reimbursement, deadline, allowance, threshold, and procurement questions, extract the exact rule from the retrieved text.
 - Cite document names or chunk-derived snippets in evidence.
 
 ## Progressive Disclosure

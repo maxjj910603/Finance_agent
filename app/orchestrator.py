@@ -57,8 +57,11 @@ class Orchestrator:
         sql_spec = self.skill_registry.get("sql-skill")
         rag_spec = self.skill_registry.get("rag-skill")
         hybrid_spec = self.skill_registry.get("hybrid-skill")
-        sql_answer, sql_evidence = self.sql_skill.run(question, sql_spec.instructions)
-        rag_answer, rag_evidence = self.rag_skill.run(question, rag_spec.instructions)
+        parts = self.llm_client.decompose_hybrid_question(question)
+        sql_question = parts.sql_question if parts is not None else question
+        policy_question = parts.policy_question if parts is not None else question
+        sql_answer, sql_evidence = self.sql_skill.run(sql_question, sql_spec.instructions)
+        rag_answer, rag_evidence = self.rag_skill.run(policy_question, rag_spec.instructions)
         answer, evidence = self.hybrid_skill.run(
             question,
             sql_answer,
