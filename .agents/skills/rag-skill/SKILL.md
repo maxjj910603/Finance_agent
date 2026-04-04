@@ -7,28 +7,37 @@ description: Retrieve and summarize finance policy evidence from embedded docume
 
 Use this skill for finance policy, reimbursement, approval, or budget-rule questions that should be answered from local documents.
 
-## Scope
+## When To Use
 
 Use this skill for:
-- chunk-based retrieval from embedded policy documents
-- grounded summarization from retrieved chunks
-- document evidence generation
+- reimbursement rules
+- budget approval requirements
+- policy interpretation
+- document-grounded finance procedures
 
 Do not use this skill for:
 - pure SQL questions
 - casual chat
 - freeform unsupported advice
 
-## Data Source
+## Inputs
 
-The finance RAG source is the local policy document corpus embedded into the vector database.
+Expect these inputs:
+- `question`
+- retrieved chunk candidates from the vector store
 
-## Rules
+The relevant source is the local finance policy document corpus embedded in the vector database.
 
-- Retrieval must be embedding-based.
-- Answers must stay grounded in retrieved chunks.
-- If evidence is weak, say `insufficient evidence`.
-- Cite document names or chunk-derived snippets in evidence.
+## Workflow
+
+Follow this sequence:
+
+1. Read the user question and identify the relevant finance policy topic.
+2. Convert the question into an embedding using the configured embedding model.
+3. Query the vector store for the top relevant chunks.
+4. Inspect the retrieved chunks and determine whether they are sufficient to support an answer.
+5. Draft a concise answer that stays grounded in the retrieved text.
+6. Produce evidence that cites the document source and the relevant chunk snippets.
 
 ## Output Contract
 
@@ -36,6 +45,17 @@ Produce these conceptual fields:
 - `answer`
 - `citations`
 - `evidence`
+
+Evidence should include:
+- document source
+- chunk-based snippets or metadata
+
+## Guardrails
+
+- Retrieval must be embedding-based.
+- Answers must stay grounded in retrieved chunks.
+- If evidence is weak, say `insufficient evidence`.
+- Cite document names or chunk-derived snippets in evidence.
 
 ## Progressive Disclosure
 
