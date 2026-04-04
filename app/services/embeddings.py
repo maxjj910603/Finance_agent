@@ -9,7 +9,7 @@ import urllib.request
 class EmbeddingService:
     def __init__(self) -> None:
         self.host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
-        self.model = os.getenv("EMBEDDING_MODEL", "bge-small-zh-v1.5")
+        self.model = os.getenv("EMBEDDING_MODEL", "qllama/bge-small-zh-v1.5:latest")
 
     def embed_text(self, text: str) -> list[float]:
         if not text.strip():
