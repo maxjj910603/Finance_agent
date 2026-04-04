@@ -21,10 +21,9 @@ class LLMClientTests(unittest.TestCase):
         result = LLMClient._parse_route('{"route":"payment-policy","reason":"approval threshold question","confidence":0.88}')
         self.assertIsNone(result)
 
-    def test_cleanup_answer_normalizes_common_simplified_chinese(self) -> None:
-        client = LLMClient()
-        answer = client._cleanup_answer("根据报销规范，金额超过 10000 的采购需要审批。")
-        self.assertEqual(answer, "根據報銷規範，金額超過 10000 的採購需要審批。")
+    def test_cleanup_answer_removes_labels_without_character_conversion(self) -> None:
+        answer = LLMClient._cleanup_answer("answer: 根据报销规范")
+        self.assertEqual(answer, "根据报销规范")
 
 
 if __name__ == "__main__":
