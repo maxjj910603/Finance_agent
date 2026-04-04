@@ -123,6 +123,11 @@ class LLMClient:
             "Follow the provided skill instructions. "
             "Use only the provided retrieved document context. "
             "If the context is insufficient, say insufficient evidence. "
+            "Answer the question directly in 1 to 2 sentences. "
+            "Do not repeat the same fact in multiple formats. "
+            "Do not add bullet points unless the user explicitly asks for a list. "
+            "Do not include meta-evidence phrases such as '源文出自', '明確指出', '根據文件內容', or similar commentary about the evidence. "
+            "Only include extra detail when it is necessary to make the answer unambiguous. "
             "Do not output labels such as answer, citations, or evidence. "
             "Return only the final answer."
         )

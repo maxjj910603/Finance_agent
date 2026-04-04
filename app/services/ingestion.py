@@ -11,8 +11,8 @@ class IngestionService:
         self,
         embedding_service: EmbeddingService,
         vector_store: VectorStore,
-        chunk_size: int = 300,
-        chunk_overlap: int = 50,
+        chunk_size: int = 150,
+        chunk_overlap: int = 30,
     ) -> None:
         self.embedding_service = embedding_service
         self.vector_store = vector_store

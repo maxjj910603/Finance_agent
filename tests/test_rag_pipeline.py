@@ -49,6 +49,14 @@ class RAGPipelineTests(unittest.TestCase):
         self.assertGreaterEqual(len(results), 1)
         self.assertIn("finance_policy.txt", results[0]["metadata"]["source"])
 
+    def test_default_chunk_settings_match_runtime_configuration(self) -> None:
+        ingestion = IngestionService(
+            embedding_service=self.embedding_service,
+            vector_store=self.vector_store,
+        )
+        self.assertEqual(ingestion.chunk_size, 150)
+        self.assertEqual(ingestion.chunk_overlap, 30)
+
 
 if __name__ == "__main__":
     unittest.main()

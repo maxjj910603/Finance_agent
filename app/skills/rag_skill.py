@@ -30,7 +30,7 @@ class RAGSkill:
                 EvidenceItem(
                     type="rag",
                     source=str(source),
-                    detail=f"chunk_index={chunk_index}; distance={distance}; snippet={document[:220]}",
+                    detail=f"chunk_index={chunk_index}; distance={distance}; snippet={document}",
                 )
             )
 
