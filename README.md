@@ -64,12 +64,6 @@ On first run:
 - the app seeds the local SQLite database under `data/db/` if it does not exist yet
 - the app builds the local vector index under `data/vector_store/` if it is empty
 
-## Test
-
-```bash
-python -m unittest discover -s tests -v
-```
-
 ## Notes
 
 - On startup, the app seeds the local SQLite database if it is empty.
