@@ -55,7 +55,7 @@ Evidence should include:
 
 - Retrieval must be embedding-based.
 - Answers must stay grounded in retrieved chunks.
-- If evidence is weak, say `insufficient evidence`.
+- If no relevant chunks are retrieved, say `insufficient evidence`.
 - Do not say `insufficient evidence` when a retrieved chunk already contains a directly applicable rule.
 - For approval, reimbursement, deadline, allowance, threshold, and procurement questions, extract the exact rule from the retrieved text.
 - Cite document names or chunk-derived snippets in evidence.

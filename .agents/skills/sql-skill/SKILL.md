@@ -34,7 +34,7 @@ Follow this sequence:
 
 1. Read the user question and identify the required metric, time range, and aggregation.
 2. Use the provided schema to generate exactly one SQLite `SELECT` statement.
-3. Validate that the SQL is read-only and references only valid schema fields.
+3. Validate that the SQL is read-only before execution.
 4. Execute the query against the local SQLite database.
 5. Summarize the rows into a concise factual answer.
 6. Produce evidence that includes the executed SQL and a short result summary.
@@ -56,7 +56,8 @@ Evidence must include:
 - Generate exactly one `SELECT` statement.
 - Never use `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `PRAGMA`, or multi-statement SQL.
 - Keep answers grounded in actual query results.
-- If the question cannot be answered from the schema, state that clearly instead of inventing tables or columns.
+- Prefer the provided schema and avoid inventing tables or columns.
+- If SQL generation fails validation or execution, the runtime may fall back to a simple heuristic SQL query.
 
 ## Progressive Disclosure
 

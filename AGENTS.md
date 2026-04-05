@@ -30,12 +30,13 @@ The system must return:
 - Non-MVP workflows
 
 ## Architecture
-Use one orchestrator and three skills.
+Use one orchestrator and four skills.
 
 - `orchestrator`: receives the user question, asks the LLM to choose a route, dispatches execution, and normalizes output
+- `chat_skill`: handles greetings, casual conversation, and general non-finance small talk
 - `sql_skill`: generates safe read-only SQL, executes it, and summarizes results
 - `rag_skill`: chunks finance policy documents, retrieves grounded evidence, and drafts an answer
-- `hybrid_skill`: combines SQL facts and RAG evidence into one answer
+- `hybrid_skill`: combines SQL facts and RAG evidence into one answer after the orchestrator decomposes the hybrid question
 
 ## Routing Contract
 The LLM route decision must return strict JSON:
@@ -64,8 +65,14 @@ Fallback rules:
 - Constraint: retrieval must come from embedded document chunks.
 
 ### `hybrid_skill`
-- Input: `{ question, sql_result, rag_result }`
+- Input: `{ question, sql_answer, rag_answer, sql_evidence, rag_evidence }`
 - Output: `{ answer, evidence }`
+
+Hybrid execution flow:
+- The orchestrator first decomposes the original hybrid question into an `sql_question` and a `policy_question`.
+- `sql_skill` answers the SQL sub-question.
+- `rag_skill` answers the policy sub-question.
+- `hybrid_skill` combines both grounded sub-answers into one final answer.
 
 ## Answer Contract
 Every response must include:
