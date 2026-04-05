@@ -36,6 +36,10 @@ Local runnable finance assistant MVP with four routes:
 - A model for text generation, default `qwen2.5:7b-instruct`
 - An embedding model, default `qllama/bge-small-zh-v1.5:latest`
 
+Note:
+- `requirements.txt` installs Python dependencies only.
+- Ollama and the required local models must already be installed on the machine.
+
 Install dependencies:
 
 ```bash
@@ -56,6 +60,10 @@ Interactive CLI:
 python -m app.main
 ```
 
+On first run:
+- the app seeds the local SQLite database under `data/db/` if it does not exist yet
+- the app builds the local vector index under `data/vector_store/` if it is empty
+
 ## Test
 
 ```bash
@@ -71,3 +79,4 @@ python -m unittest discover -s tests -v
 - SQL execution is read-only and constrained to `SELECT`.
 - RAG retrieval is grounded in the local vector store only, using embedding retrieval with `top_k=3`.
 - The current ingestion defaults are `chunk_size=150` and `chunk_overlap=30`.
+- Runtime artifacts under `data/db/` and `data/vector_store/` are intentionally not committed; they are rebuilt locally when needed.
